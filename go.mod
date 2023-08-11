@@ -1,4 +1,4 @@
-module tg-media
+module "github.com/ya-meh/tg-media"
 
 go 1.20
 
