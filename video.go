@@ -1,7 +1,10 @@
 package tgmedia
 
 import (
+	"errors"
 	"fmt"
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/matchers"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,24 +14,13 @@ import (
 
 // I do not use constants on the purpose of more versatile API
 var (
-	FfmpegPath               = "ffmpeg"
-	FfprobePath              = "ffprobe"
-	ffmpegConvert            = []string{"-vcodec", "libx264", "-acodec", "aac", "-y", "-preset", "faster"}
-	ffprobeGetEncoding       = strings.Split("-v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1", " ")
-	ApiSupportedVideoFormats = []string{"mp4", "mov"}
-	TargetEncoding           = "h264"
-	SupportedEncodings       = []string{"h264", "hevc", "h265"}
+	FfmpegPath         = "ffmpeg"
+	FfprobePath        = "ffprobe"
+	ffmpegConvert      = []string{"-vcodec", "libx264", "-acodec", "aac", "-y", "-preset", "fast"}
+	ffprobeGetEncoding = strings.Split("-v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1", " ")
+	TargetEncoding     = "h264"
+	SupportedEncodings = []string{"h264", "hevc", "h265"}
 )
-
-func IsVideoFormatSupported(filename string) bool {
-	f := strings.ToLower(filename)
-	for _, format := range ApiSupportedVideoFormats {
-		if strings.HasSuffix(f, format) {
-			return true
-		}
-	}
-	return false
-}
 
 func IsVideoEncodingSupported(filename string) (bool, error) {
 	videoEncoding, err := GetVideoEncoding(filename)
@@ -59,17 +51,33 @@ func GetVideoEncoding(filename string) (string, error) {
 	return strings.Trim(string(stdout), "\n "), nil
 }
 
+var NotVideoProvided = errors.New("video expected")
+
+func IsVideo(filename string) bool {
+	buff, err := ReadTop(filename, 512)
+	if err != nil {
+		return false
+	}
+
+	return filetype.IsVideo(buff)
+}
+
+func IsFormatSupported(filename string) bool {
+	buff, err := ReadTop(filename, 512)
+	if err != nil {
+		return false
+	}
+
+	return matchers.Mp4(buff) || matchers.Mov(buff)
+}
+
 func Video(filename string) (string, error) {
-	if IsVideoFormatSupported(filename) {
-		if encoded, err := IsVideoEncodedWith(filename, TargetEncoding); err != nil && encoded {
-			encoding, err := GetVideoEncoding(filename)
-			if err != nil {
-				return filename, err
-			}
-			if strings.ToLower(encoding) == TargetEncoding {
-				return filename, nil
-			}
-		}
+	if !IsVideo(filename) {
+		return "", NotVideoProvided
+	}
+
+	if IsFormatSupported(filename) {
+		return filename, nil
 	}
 
 	file, err := mktmpFile("tgmedialib_video_*.mp4")
