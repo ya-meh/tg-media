@@ -7,8 +7,9 @@
 package tgmedia
 
 import (
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/matchers"
 	"os"
-	"strings"
 )
 
 var (
@@ -18,17 +19,44 @@ var (
 
 var ApiSupportedImageFormats = []string{"jpg", "png", "jpeg"}
 
-func IsPhotoFormatSupported(filename string) bool {
-	f := strings.ToLower(filename)
-	for _, format := range ApiSupportedImageFormats {
-		if strings.HasSuffix(f, format) {
-			return true
-		}
+func ReadTop(filename string, size int64) ([]byte, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
 	}
-	return false
+	defer f.Close()
+
+	buff := make([]byte, size)
+	if _, err := f.Read(buff); err != nil {
+		return nil, err
+	}
+
+	return buff, nil
+}
+
+func IsPhoto(filename string) bool {
+	buff, err := ReadTop(filename, 512)
+	if err != nil {
+		return false
+	}
+
+	return filetype.IsImage(buff)
+}
+
+func IsPhotoFormatSupported(filename string) bool {
+	buff, err := ReadTop(filename, 512)
+	if err != nil {
+		return false
+	}
+
+	return matchers.Jpeg(buff) || matchers.Png(buff)
 }
 
 func Photo(filename string) (string, error) {
+	if !IsPhoto(filename) {
+		return "", NotImageError
+	}
+
 	stat, err := PhotoStats(filename)
 	if err != nil {
 		return filename, err

@@ -1,8 +1,11 @@
-module "github.com/ya-meh/tg-media"
+module github.com/ya-meh/tg-media
 
 go 1.20
 
-require github.com/stretchr/testify v1.8.4
+require (
+	github.com/h2non/filetype v1.1.3
+	github.com/stretchr/testify v1.8.4
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
